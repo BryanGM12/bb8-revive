@@ -185,6 +185,11 @@
     </div>
 
     <div class="card">
+      <div style="margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+        <input type="checkbox" id="showAllDevices" style="accent-color: var(--accent); width: 16px; height: 16px;">
+        <label for="showAllDevices">Mostrar todos los dispositivos Bluetooth cercanos</label>
+      </div>
+
       <button id="reviveBtn" class="btn" onclick="startRevival()">
         <span>⚡ Conectar y Revivir BB-8</span>
       </button>
@@ -246,6 +251,7 @@
       const bytesLabel = document.getElementById('bytesLabel');
       const speedLabel = document.getElementById('speedLabel');
       const statusBadge = document.getElementById('statusBadge');
+      const showAll = document.getElementById('showAllDevices').checked;
 
       if (!navigator.bluetooth) {
         alert('Web Bluetooth no está soportado en este navegador. Por favor abre este enlace en Google Chrome de tu teléfono Android.');
@@ -260,13 +266,30 @@
       let device, server;
       try {
         log('Solicitando dispositivo Bluetooth...');
-        device = await navigator.bluetooth.requestDevice({
-          filters: [
-            { name: 'OTA UPDATE' },
-            { namePrefix: 'OTA' }
-          ],
-          optionalServices: [OTA_SERVICE]
-        });
+        const reqOptions = showAll
+          ? { acceptAllDevices: true, optionalServices: [OTA_SERVICE] }
+          : {
+              filters: [
+                { name: 'OTA UPDATE' },
+                { namePrefix: 'OTA' },
+                { namePrefix: 'ota' }
+              ],
+              optionalServices: [OTA_SERVICE]
+            };
+
+        try {
+          device = await navigator.bluetooth.requestDevice(reqOptions);
+        } catch (filterErr) {
+          if (!showAll && filterErr.name !== 'NotFoundError') {
+            log('Reintentando con todos los dispositivos...');
+            device = await navigator.bluetooth.requestDevice({
+              acceptAllDevices: true,
+              optionalServices: [OTA_SERVICE]
+            });
+          } else {
+            throw filterErr;
+          }
+        }
 
         log('Conectado a ' + (device.name || 'OTA UPDATE') + '. Estableciendo GATT...');
         statusBadge.textContent = 'Conectado. Preparando...';
