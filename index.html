@@ -185,9 +185,11 @@
     </div>
 
     <div class="card">
+      <div id="envNotice" style="margin-bottom: 0.75rem; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; display: none;"></div>
+
       <div style="margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
-        <input type="checkbox" id="showAllDevices" style="accent-color: var(--accent); width: 16px; height: 16px;">
-        <label for="showAllDevices">Mostrar todos los dispositivos Bluetooth cercanos</label>
+        <input type="checkbox" id="showAllDevices" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
+        <label for="showAllDevices">Buscar todos los dispositivos (Recomendado)</label>
       </div>
 
       <button id="reviveBtn" class="btn" onclick="startRevival()">
@@ -208,7 +210,7 @@
         </div>
       </div>
 
-      <div id="logBox" class="log-box">[Sistema listo. Abre este enlace en Chrome de tu móvil Android y pulsa el botón.]</div>
+      <div id="logBox" class="log-box">[Comprobando entorno del navegador...]</div>
     </div>
   </div>
 
@@ -233,6 +235,37 @@
       console.log('[' + time + '] ' + msg);
     }
 
+    // Diagnosticar entorno al cargar
+    window.addEventListener('DOMContentLoaded', () => {
+      const notice = document.getElementById('envNotice');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isAndroid = /Android/.test(navigator.userAgent);
+      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+
+      if (!navigator.bluetooth) {
+        notice.style.display = 'block';
+        if (isIOS) {
+          notice.style.background = 'rgba(248, 81, 73, 0.2)';
+          notice.style.color = '#ff7b72';
+          notice.style.border = '1px solid rgba(248, 81, 73, 0.4)';
+          notice.innerHTML = '🍎 <strong>iPhone/iPad detectado:</strong> Safari y Chrome en iOS no admiten Web Bluetooth por bloqueo de Apple. Para usar este iPhone, descarga la app gratuita <strong>Bluefy</strong> desde la App Store y abre este enlace allí.';
+        } else {
+          notice.style.background = 'rgba(248, 81, 73, 0.2)';
+          notice.style.color = '#ff7b72';
+          notice.style.border = '1px solid rgba(248, 81, 73, 0.4)';
+          notice.innerHTML = '⚠️ <strong>Web Bluetooth no disponible:</strong> Si abriste este enlace desde un chat (WhatsApp/Telegram), pulsa los tres puntos (⋮) arriba a la derecha y selecciona <strong>Abrir en Chrome</strong>.';
+        }
+        log('Web Bluetooth NO disponible en este navegador.');
+      } else {
+        notice.style.display = 'block';
+        notice.style.background = 'rgba(63, 185, 80, 0.15)';
+        notice.style.color = '#3fb950';
+        notice.style.border = '1px solid rgba(63, 185, 80, 0.3)';
+        notice.innerHTML = '✅ <strong>Navegador compatible:</strong> Bluetooth listo. Toca el botón naranja para iniciar.';
+        log('Navegador compatible con Web Bluetooth. Listo.');
+      }
+    });
+
     function base64ToBytes(b64) {
       const binary = atob(b64);
       const bytes = new Uint8Array(binary.length);
@@ -254,7 +287,7 @@
       const showAll = document.getElementById('showAllDevices').checked;
 
       if (!navigator.bluetooth) {
-        alert('Web Bluetooth no está soportado en este navegador. Por favor abre este enlace en Google Chrome de tu teléfono Android.');
+        alert('Web Bluetooth no está soportado en este navegador. Por favor abre este enlace en Google Chrome (en Android) o en Bluefy (en iPhone).');
         return;
       }
 
@@ -262,10 +295,10 @@
       progressSection.style.display = 'block';
       statusBadge.textContent = 'Buscando BB-8...';
       statusBadge.className = 'status-badge active';
+      log('Llamando a navigator.bluetooth.requestDevice()...');
 
       let device, server;
       try {
-        log('Solicitando dispositivo Bluetooth...');
         const reqOptions = showAll
           ? { acceptAllDevices: true, optionalServices: [OTA_SERVICE] }
           : {
@@ -277,22 +310,11 @@
               optionalServices: [OTA_SERVICE]
             };
 
-        try {
-          device = await navigator.bluetooth.requestDevice(reqOptions);
-        } catch (filterErr) {
-          if (!showAll && filterErr.name !== 'NotFoundError') {
-            log('Reintentando con todos los dispositivos...');
-            device = await navigator.bluetooth.requestDevice({
-              acceptAllDevices: true,
-              optionalServices: [OTA_SERVICE]
-            });
-          } else {
-            throw filterErr;
-          }
-        }
+        device = await navigator.bluetooth.requestDevice(reqOptions);
+        log('Dispositivo seleccionado: ' + (device.name || '<Sin nombre>') + ' (' + device.id + ')');
+        statusBadge.textContent = 'Conectando a ' + (device.name || 'BB-8') + '...';
 
-        log('Conectado a ' + (device.name || 'OTA UPDATE') + '. Estableciendo GATT...');
-        statusBadge.textContent = 'Conectado. Preparando...';
+        log('Conectando a GATT server...');
         server = await device.gatt.connect();
 
         log('Obteniendo servicio OTA (1010)...');
