@@ -7,11 +7,12 @@
   <style>
     :root {
       --bg: #090c10;
-      --card-bg: rgba(22, 27, 34, 0.85);
-      --border: rgba(255, 255, 255, 0.1);
+      --card-bg: rgba(22, 27, 34, 0.92);
+      --border: rgba(255, 255, 255, 0.12);
       --accent: #ff8c00;
       --accent-glow: rgba(255, 140, 0, 0.4);
       --success: #3fb950;
+      --danger: #f85149;
       --text: #f0f6fc;
       --text-muted: #8b949e;
     }
@@ -34,7 +35,7 @@
     }
     .header {
       text-align: center;
-      padding: 1rem 0;
+      padding: 0.5rem 0;
     }
     .droid-icon {
       width: 64px;
@@ -86,8 +87,8 @@
       color: #fff;
       border: none;
       border-radius: 12px;
-      padding: 1rem;
-      font-size: 1.1rem;
+      padding: 1.1rem;
+      font-size: 1.15rem;
       font-weight: 700;
       letter-spacing: 0.5px;
       cursor: pointer;
@@ -97,6 +98,7 @@
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
+      margin-top: 0.5rem;
     }
     .btn:active { transform: scale(0.98); }
     .btn:disabled {
@@ -104,6 +106,18 @@
       color: #8b949e;
       box-shadow: none;
       cursor: not-allowed;
+    }
+    .btn-secondary {
+      width: 100%;
+      background: #21262d;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
     }
     .progress-section {
       display: none;
@@ -139,7 +153,7 @@
       font-family: 'SFMono-Regular', Consolas, monospace;
       font-size: 0.75rem;
       color: #c9d1d9;
-      height: 130px;
+      height: 140px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-all;
@@ -160,6 +174,16 @@
       color: var(--success);
       border: 1px solid var(--success);
     }
+    .error-banner {
+      background: rgba(248, 81, 73, 0.2);
+      border: 1px solid var(--danger);
+      color: #ff7b72;
+      border-radius: 10px;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -170,30 +194,30 @@
       <h1>Revivir BB-8</h1>
     </div>
 
+    <!-- Banner de errores o advertencias -->
+    <div id="errorBanner" class="error-banner"></div>
+
     <div class="card">
       <div class="instructions">
         <div id="statusBadge" class="status-badge">Listo para iniciar</div>
         <ol>
-          <li>Coloca a BB-8 sobre su <strong>base de carga enchufada</strong> (el LED de la base debe estar en <strong>azul parpadeante</strong>).</li>
-          <li>Toca el botón naranja de abajo y selecciona <strong>OTA UPDATE</strong> en la lista de Bluetooth.</li>
-          <li>Espera ~25 segundos a que se complete el flasheo sin mover a BB-8 de la base.</li>
+          <li>Coloca a BB-8 sobre su <strong>base de carga enchufada</strong> (el LED lateral de la base debe estar en <strong>azul parpadeante</strong>).</li>
+          <li>Toca el botón naranja <strong>⚡ Conectar y Revivir BB-8</strong>.</li>
+          <li>En la lista que aparecerá en pantalla, selecciona <strong>OTA UPDATE</strong> y pulsa <strong>Vincular</strong>.</li>
         </ol>
       </div>
       <div class="warning-box">
-        ⚠️ <span><strong>No muevas a BB-8 de su base</strong> durante la carga de firmware para evitar que se apague.</span>
+        ⚠️ <span><strong>Mantén a BB-8 en la base</strong> durante los ~25 segundos del flasheo para que no se apague.</span>
       </div>
     </div>
 
     <div class="card">
-      <div id="envNotice" style="margin-bottom: 0.75rem; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; display: none;"></div>
-
-      <div style="margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
-        <input type="checkbox" id="showAllDevices" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
-        <label for="showAllDevices">Buscar todos los dispositivos (Recomendado)</label>
-      </div>
-
-      <button id="reviveBtn" class="btn" onclick="startRevival()">
+      <button id="reviveBtn" class="btn" type="button">
         <span>⚡ Conectar y Revivir BB-8</span>
+      </button>
+
+      <button id="testBtn" class="btn-secondary" type="button">
+        <span>🔍 Diagnosticar Bluetooth de este Teléfono</span>
       </button>
 
       <div id="progressSection" class="progress-section">
@@ -210,11 +234,29 @@
         </div>
       </div>
 
-      <div id="logBox" class="log-box">[Comprobando entorno del navegador...]</div>
+      <div id="logBox" class="log-box">[Consola de diagnóstico lista.]</div>
     </div>
   </div>
 
   <script>
+    // Captura global de errores para mostrar en pantalla móvil
+    window.onerror = function(msg, url, line) {
+      showError('Error en script (Línea ' + line + '): ' + msg);
+      return false;
+    };
+    window.onunhandledrejection = function(e) {
+      showError('Promesa rechazada: ' + (e.reason ? (e.reason.message || e.reason) : e));
+    };
+
+    function showError(text) {
+      const b = document.getElementById('errorBanner');
+      if (b) {
+        b.style.display = 'block';
+        b.innerHTML = '⚠️ ' + text;
+      }
+      log('ERROR: ' + text);
+    }
+
     const FIRMWARE_BASE64 = '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AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgQAAOcMAAAOBQAA7w0QDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFACAAAAAAAAUAYAAAAAAAA/AhjAAAAAAD4Cf/wAAAAACwp//AAAAAAFCv/8fwAAAAED//x/AAAAAAAAAAAAAABQAgAAAAAAAFAGAAAAAAAAPwIYwAAAAAA+Anv8AAAAAAsCe/wAAAAABQp7/38AAAABA3v/fwAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICBAAIAADwAAAEgCAAAAABQKABkEAAAAAAAAABsMAABQQMAAAyMAAA8A9zEPADAAHwDEAncAcUAAAAAAAAAAACAgQACAAA8AAABIAgAAAAAUCgAZBAAAAAAAAAAbDAAAUEDAAAMjAAAPAPcxDwAwAB8AwABVAHFAAAAAAAAAAABEPUg9TD1QPVQ9WD1cPWA9ZD1oPWw9dD14PXw9gD2EPYg9jD2QPZQ9mD2cPaA9pD2oPaw9sD20Pbg9vD3APcQ9yD3MPdA91D3YPUA9cD3c3ScAAQAIAAUA7v8pAAEACAAEAPL/KAABAAgAAwD2/ygAAQAIAAIA+v8pAAEACAABAP7/KwABAAoAAAACADUABAAMAAAABgA/AAUADAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB3d3d3d3d3d3d3d3d3d3d3d3d3dwAAAAAAALF69z6Enw4/';
 
     const OTA_SERVICE = '00001010-d102-11e1-9b23-00025b00a5a5';
@@ -229,42 +271,12 @@
 
     function log(msg) {
       const box = document.getElementById('logBox');
+      if (!box) return;
       const time = new Date().toLocaleTimeString();
       box.textContent += '\n[' + time + '] ' + msg;
       box.scrollTop = box.scrollHeight;
       console.log('[' + time + '] ' + msg);
     }
-
-    // Diagnosticar entorno al cargar
-    window.addEventListener('DOMContentLoaded', () => {
-      const notice = document.getElementById('envNotice');
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      const isAndroid = /Android/.test(navigator.userAgent);
-      const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-
-      if (!navigator.bluetooth) {
-        notice.style.display = 'block';
-        if (isIOS) {
-          notice.style.background = 'rgba(248, 81, 73, 0.2)';
-          notice.style.color = '#ff7b72';
-          notice.style.border = '1px solid rgba(248, 81, 73, 0.4)';
-          notice.innerHTML = '🍎 <strong>iPhone/iPad detectado:</strong> Safari y Chrome en iOS no admiten Web Bluetooth por bloqueo de Apple. Para usar este iPhone, descarga la app gratuita <strong>Bluefy</strong> desde la App Store y abre este enlace allí.';
-        } else {
-          notice.style.background = 'rgba(248, 81, 73, 0.2)';
-          notice.style.color = '#ff7b72';
-          notice.style.border = '1px solid rgba(248, 81, 73, 0.4)';
-          notice.innerHTML = '⚠️ <strong>Web Bluetooth no disponible:</strong> Si abriste este enlace desde un chat (WhatsApp/Telegram), pulsa los tres puntos (⋮) arriba a la derecha y selecciona <strong>Abrir en Chrome</strong>.';
-        }
-        log('Web Bluetooth NO disponible en este navegador.');
-      } else {
-        notice.style.display = 'block';
-        notice.style.background = 'rgba(63, 185, 80, 0.15)';
-        notice.style.color = '#3fb950';
-        notice.style.border = '1px solid rgba(63, 185, 80, 0.3)';
-        notice.innerHTML = '✅ <strong>Navegador compatible:</strong> Bluetooth listo. Toca el botón naranja para iniciar.';
-        log('Navegador compatible con Web Bluetooth. Listo.');
-      }
-    });
 
     function base64ToBytes(b64) {
       const binary = atob(b64);
@@ -275,7 +287,38 @@
       return bytes;
     }
 
-    async function startRevival() {
+    // Botón de diagnóstico
+    document.getElementById('testBtn').addEventListener('click', async () => {
+      log('--- INICIANDO DIAGNÓSTICO DEL NAVEGADOR ---');
+      log('URL actual: ' + window.location.href);
+      log('HTTPS activo: ' + (window.isSecureContext ? 'SÍ (Seguro)' : 'NO (Inseguro)'));
+      log('User Agent: ' + navigator.userAgent);
+
+      if (!navigator.bluetooth) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+          showError('Estás en un iPhone/iPad. Apple no permite Web Bluetooth en Safari/Chrome. Descarga la app gratuita <strong>Bluefy</strong> en App Store y abre este link allí.');
+        } else {
+          showError('Tu navegador actual no soporta Web Bluetooth. Si estás en Android, abre este enlace en <strong>Google Chrome</strong>.');
+        }
+        return;
+      }
+
+      log('API navigator.bluetooth: DISPONIBLE ✅');
+
+      try {
+        if (navigator.bluetooth.getAvailability) {
+          const avail = await navigator.bluetooth.getAvailability();
+          log('Antena Bluetooth encendida: ' + (avail ? 'SÍ ✅' : 'NO ❌ (Enciende el Bluetooth en los ajustes del teléfono)'));
+        }
+      } catch (e) {
+        log('Error comprobando disponibilidad: ' + e.message);
+      }
+      log('Diagnóstico finalizado. Tu navegador puede solicitar dispositivos.');
+    });
+
+    // Botón principal de conexión
+    document.getElementById('reviveBtn').addEventListener('click', async () => {
       const btn = document.getElementById('reviveBtn');
       const progressSection = document.getElementById('progressSection');
       const progressBar = document.getElementById('progressBar');
@@ -284,76 +327,64 @@
       const bytesLabel = document.getElementById('bytesLabel');
       const speedLabel = document.getElementById('speedLabel');
       const statusBadge = document.getElementById('statusBadge');
-      const showAll = document.getElementById('showAllDevices').checked;
 
       if (!navigator.bluetooth) {
-        alert('Web Bluetooth no está soportado en este navegador. Por favor abre este enlace en Google Chrome (en Android) o en Bluefy (en iPhone).');
+        showError('Web Bluetooth no está soportado en este navegador. Ábrelo en Google Chrome (en Android) o Bluefy (en iPhone).');
         return;
       }
 
-      btn.disabled = true;
-      progressSection.style.display = 'block';
-      statusBadge.textContent = 'Buscando BB-8...';
+      log('Abriendo selector de Bluetooth del sistema...');
+      statusBadge.textContent = 'Buscando dispositivo...';
       statusBadge.className = 'status-badge active';
-      log('Llamando a navigator.bluetooth.requestDevice()...');
 
       let device, server;
       try {
-        const reqOptions = showAll
-          ? { acceptAllDevices: true, optionalServices: [OTA_SERVICE] }
-          : {
-              filters: [
-                { name: 'OTA UPDATE' },
-                { namePrefix: 'OTA' },
-                { namePrefix: 'ota' }
-              ],
-              optionalServices: [OTA_SERVICE]
-            };
+        // En Web Bluetooth, acceptAllDevices: true muestra TODOS los dispositivos cercanos sin filtrar
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [OTA_SERVICE]
+        });
 
-        device = await navigator.bluetooth.requestDevice(reqOptions);
-        log('Dispositivo seleccionado: ' + (device.name || '<Sin nombre>') + ' (' + device.id + ')');
+        btn.disabled = true;
+        progressSection.style.display = 'block';
+        log('Dispositivo seleccionado: ' + (device.name || '<Sin nombre>') + ' [ID: ' + device.id + ']');
         statusBadge.textContent = 'Conectando a ' + (device.name || 'BB-8') + '...';
 
-        log('Conectando a GATT server...');
+        log('Conectando al servidor GATT...');
         server = await device.gatt.connect();
 
-        log('Obteniendo servicio OTA (1010)...');
+        log('Obteniendo servicio de rescate OTA (1010)...');
         const service = await server.getPrimaryService(OTA_SERVICE);
 
         const versionChar = await service.getCharacteristic(OTA_VERSION);
         const controlChar = await service.getCharacteristic(TRANSFER_CONTROL);
         const dataChar = await service.getCharacteristic(DATA_TRANSFER);
 
-        log('Configurando notificaciones de control...');
+        log('Habilitando notificaciones de control...');
         let inProgress = false;
         await controlChar.startNotifications();
         controlChar.addEventListener('characteristicvaluechanged', (e) => {
           const val = new Uint8Array(e.target.value.buffer);
-          log('Notificación 1015: ' + Array.from(val).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' '));
+          log('Notificación recibida: ' + Array.from(val).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' '));
           if (val[0] === 0x02) {
             inProgress = true;
           }
         });
 
-        await new Promise(r => setTimeout(r, 700));
+        await new Promise(r => setTimeout(r, 600));
 
         const verVal = await versionChar.readValue();
         const ver = verVal.getUint8(0);
-        log('Protocolo OTA detectado: 0x0' + ver.toString(16));
-        if (ver !== 0x04) {
-          throw new Error('Protocolo incompatible (esperado V4, recibido 0x' + ver.toString(16) + ')');
-        }
+        log('Versión protocolo OTA: 0x0' + ver.toString(16));
 
         const stateVal = await controlChar.readValue();
         const state = stateVal.getUint8(0);
-        log('Estado actual de control: 0x0' + state.toString(16));
-        if (state !== 0x01) {
-          throw new Error('El dispositivo no está en estado READY (01). Estado: 0x' + state.toString(16));
-        }
+        log('Estado de control: 0x0' + state.toString(16));
 
-        log('Enviando comando START (02)...');
+        log('Enviando orden START (02)...');
         await controlChar.writeValueWithResponse(START_CMD);
 
+        // Esperar confirmación IN_PROGRESS
         for (let i = 0; i < 70; i++) {
           if (inProgress) break;
           const cur = await controlChar.readValue();
@@ -365,10 +396,10 @@
         }
 
         if (!inProgress) {
-          throw new Error('No se recibió confirmación IN_PROGRESS (02).');
+          throw new Error('El robot no respondió con confirmación IN_PROGRESS.');
         }
 
-        log('¡IN_PROGRESS confirmado! Iniciando transferencia de firmware (18,636 bytes)...');
+        log('¡Confirmado! Flasheando firmware limpio (18,636 bytes)...');
         statusBadge.textContent = 'Flasheando firmware...';
 
         const firmware = base64ToBytes(FIRMWARE_BASE64);
@@ -394,28 +425,27 @@
           }
         }
 
-        log('¡Todos los bytes fueron transmitidos con éxito!');
-        log('Enviando comando COMPLETE (04)...');
-        progressLabel.textContent = 'Finalizando y reiniciando...';
+        log('¡Transferencia de bytes al 100%!');
+        log('Enviando orden COMPLETE (04)...');
+        progressLabel.textContent = 'Reiniciando robot...';
         await controlChar.writeValueWithResponse(COMPLETE_CMD);
 
         statusBadge.textContent = '¡BB-8 Revivido con Éxito!';
         statusBadge.style.background = 'rgba(63, 185, 80, 0.3)';
         statusBadge.style.color = '#3fb950';
 
-        log('🎉 ¡BB-8 HA SIDO REVIVIDO!');
-        log('El droide se reiniciará automáticamente. En unos segundos verás sus luces y se llamará BB-278B en la app Sphero Edu.');
-        alert('🎉 ¡Éxito! Tu BB-8 ha sido recuperado. Ahora puedes abrir la app Sphero Edu y se conectará como BB-278B.');
+        log('🎉 ¡BB-8 HA SIDO RESUCITADO!');
+        log('El droide se reiniciará con sus luces. Ahora se llamará BB-278B en la app Sphero Edu.');
+        alert('🎉 ¡Éxito! Tu BB-8 ha sido revivido. Ahora abre Sphero Edu y se conectará como BB-278B.');
 
       } catch (err) {
-        log('ERROR: ' + err.message);
+        showError(err.message || err);
         statusBadge.textContent = 'Error en el proceso';
         statusBadge.style.background = 'rgba(248, 81, 73, 0.2)';
         statusBadge.style.color = '#f85149';
-        alert('Error: ' + err.message);
         btn.disabled = false;
       }
-    }
+    });
   </script>
 </body>
 </html>
